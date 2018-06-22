@@ -1,4 +1,8 @@
 #include "tweetnacl.h"
+#include <stdlib.h>
+#include <time.h>
+
+
 #define FOR(i,n) for (i = 0;i < n;++i)
 #define sv static void
 
@@ -7,13 +11,19 @@ typedef unsigned long u32;
 typedef unsigned long long u64;
 typedef long long i64;
 typedef i64 gf[16];
-extern void randombytes(u8 *,u64);
+void randombytes(u8* out, u64 count) {
+  srand ((unsigned int) time (NULL));
+
+  for (u64 i = 0; i < count; i++) {
+    out[i] = rand();
+  }
+}
 
 static const u8
-  _0[16],
+  _0[16] = {0},
   _9[32] = {9};
 static const gf
-  gf0,
+  gf0 = {0},
   gf1 = {1},
   _121665 = {0xDB41,1},
   D = {0x78a3, 0x1359, 0x4dca, 0x75eb, 0xd8ab, 0x4141, 0x0a4d, 0x0070, 0xe898, 0x7779, 0x4079, 0x8cc7, 0xfe73, 0x2b6f, 0x6cee, 0x5203},
@@ -54,7 +64,7 @@ sv ts64(u8 *x,u64 u)
 static int vn(const u8 *x,const u8 *y,int n)
 {
   u32 i,d = 0;
-  FOR(i,n) d |= x[i]^y[i];
+  FOR(i,(u32)n) d |= x[i]^y[i];
   return (1 & ((d - 1) >> 8)) - 1;
 }
 
@@ -120,7 +130,7 @@ int crypto_core_hsalsa20(u8 *out,const u8 *in,const u8 *k,const u8 *c)
   return 0;
 }
 
-static const u8 sigma[16] = "expand 32-byte k";
+static const u8 sigma[16] = {'e', 'x', 'p', 'a', 'n', 'd', ' ', '3', '2', '-', 'b', 'y', 't', 'e', ' ', 'k'};
 
 int crypto_stream_salsa20_xor(u8 *c,const u8 *m,u64 b,const u8 *n,const u8 *k)
 {
@@ -443,7 +453,7 @@ int crypto_scalarmult(u8 *q,const u8 *n,const u8 *p)
 }
 
 int crypto_scalarmult_base(u8 *q,const u8 *n)
-{ 
+{
   return crypto_scalarmult(q,n,_9);
 }
 
@@ -492,7 +502,7 @@ static u64 Sigma1(u64 x) { return R(x,14) ^ R(x,18) ^ R(x,41); }
 static u64 sigma0(u64 x) { return R(x, 1) ^ R(x, 8) ^ (x >> 7); }
 static u64 sigma1(u64 x) { return R(x,19) ^ R(x,61) ^ (x >> 6); }
 
-static const u64 K[80] = 
+static const u64 K[80] =
 {
   0x428a2f98d728ae22ULL, 0x7137449123ef65cdULL, 0xb5c0fbcfec4d3b2fULL, 0xe9b5dba58189dbbcULL,
   0x3956c25bf348b538ULL, 0x59f111f1b605d019ULL, 0x923f82a4af194f9bULL, 0xab1c5ed5da6d8118ULL,
@@ -588,7 +598,7 @@ int crypto_hash(u8 *out,const u8 *m,u64 n)
 sv add(gf p[4],gf q[4])
 {
   gf a,b,c,d,t,e,f,g,h;
-  
+
   Z(a, p[1], p[0]);
   Z(t, q[1], q[0]);
   M(a, a, t);
@@ -620,7 +630,7 @@ sv cswap(gf p[4],gf q[4],u8 b)
 sv pack(u8 *r,gf p[4])
 {
   gf tx, ty, zi;
-  inv25519(zi, p[2]); 
+  inv25519(zi, p[2]);
   M(tx, p[0], zi);
   M(ty, p[1], zi);
   pack25519(r, ty);
@@ -653,13 +663,15 @@ sv scalarbase(gf p[4],const u8 *s)
   scalarmult(p,q,s);
 }
 
-int crypto_sign_keypair(u8 *pk, u8 *sk)
+int crypto_sign_keypair(u8 *pk, u8 *sk, int seeded)
 {
   u8 d[64];
   gf p[4];
   int i;
 
-  randombytes(sk, 32);
+  if (!seeded) {
+    randombytes(sk, 32);
+  }
   crypto_hash(d, sk, 32);
   d[0] &= 248;
   d[31] &= 127;
@@ -720,7 +732,7 @@ int crypto_sign(u8 *sm,u64 *smlen,const u8 *m,u64 n,const u8 *sk)
   d[31] |= 64;
 
   *smlen = n+64;
-  FOR(i,n) sm[64 + i] = m[i];
+  FOR(i,(i64)n) sm[64 + i] = m[i];
   FOR(i,32) sm[32 + i] = d[32 + i];
 
   crypto_hash(r, sm+32, n+32);
@@ -787,7 +799,7 @@ int crypto_sign_open(u8 *m,u64 *mlen,const u8 *sm,u64 n,const u8 *pk)
 
   if (unpackneg(q,pk)) return -1;
 
-  FOR(i,n) m[i] = sm[i];
+  FOR(i,(int)n) m[i] = sm[i];
   FOR(i,32) m[i+32] = pk[i];
   crypto_hash(h,m,n);
   reduce(h);
@@ -799,11 +811,11 @@ int crypto_sign_open(u8 *m,u64 *mlen,const u8 *sm,u64 n,const u8 *pk)
 
   n -= 64;
   if (crypto_verify_32(sm, t)) {
-    FOR(i,n) m[i] = 0;
+    FOR(i,(int)n) m[i] = 0;
     return -1;
   }
 
-  FOR(i,n) m[i] = sm[i + 64];
+  FOR(i,(int)n) m[i] = sm[i + 64];
   *mlen = n;
   return 0;
 }
