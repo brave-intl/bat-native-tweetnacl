@@ -1,6 +1,7 @@
 #include "tweetnacl.h"
 #include <stdlib.h>
 #include <time.h>
+#include <limits>
 
 
 #define FOR(i,n) for (i = 0;i < n;++i)
@@ -235,7 +236,10 @@ int crypto_onetimeauth(u8 *out,const u8 *m,u64 n,const u8 *k)
 
   FOR(j,17) g[j] = h[j];
   add1305(h,minusp);
-  s = -(h[16] >> 7);
+
+  u32 temp = (h[16] >> 7);
+  s = std::numeric_limits<u32>::max() - temp + 1;
+  
   FOR(j,17) h[j] ^= s & (g[j] ^ h[j]);
 
   FOR(j,16) c[j] = k[j + 16];
