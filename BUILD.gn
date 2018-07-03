@@ -2,9 +2,12 @@
 # Use of this source code is governed by a BSD-style license that can be
 # found in the LICENSE file.
 
-import("//build/config/features.gni")
+config("external_config") {
+  include_dirs = [ "." ]
+}
 
-static_library("tweetnacl") {
+source_set("tweetnacl") {
+  public_configs = [ ":external_config" ]
   sources = [
     "tweetnacl.cc",
   ]
