@@ -3,6 +3,16 @@
 #include <time.h>
 #include <limits>
 
+#if defined _WINDOWS
+#define NOGDI
+#define NOMINMAX
+#include <windows.h>
+#include <Wincrypt.h>
+#else
+#include <fcntl.h>
+#include <unistd.h>
+#endif
+
 
 #define FOR(i,n) for (i = 0;i < n;++i)
 #define sv static void
@@ -12,12 +22,27 @@ typedef unsigned long u32;
 typedef unsigned long long u64;
 typedef long long i64;
 typedef i64 gf[16];
-void randombytes(u8* out, u64 count) {
-  srand ((unsigned int) time (NULL));
 
-  for (u64 i = 0; i < count; i++) {
-    out[i] = rand();
+void randombytes(u8* out, u64 count) {
+#if defined _WINDOWS
+  HCRYPTPROV hCryptProv;
+  if (!CryptAcquireContext(&hCryptProv, NULL, NULL, PROV_RSA_FULL, CRYPT_VERIFYCONTEXT | CRYPT_SILENT)) {
+    return;
   }
+  if (hCryptProv && !CryptGenRandom(hCryptProv, (DWORD)count, (BYTE*)out)) {
+    return;
+  }
+  if (hCryptProv && !CryptReleaseContext(hCryptProv, 0)) {
+    return;
+  }
+#else
+  int rr = open("/dev/urandom", O_RDONLY);
+  u64 numBytes = read(rr, out, count);
+  if (rr<0 || numBytes != count) {
+    fprintf(stderr, "Could not read %llu byes from /dev/urandom. Abort.\n", count);
+  }
+  close(rr);
+#endif
 }
 
 static const u8
@@ -239,7 +264,7 @@ int crypto_onetimeauth(u8 *out,const u8 *m,u64 n,const u8 *k)
 
   u32 temp = (h[16] >> 7);
   s = std::numeric_limits<u32>::max() - temp + 1;
-  
+
   FOR(j,17) h[j] ^= s & (g[j] ^ h[j]);
 
   FOR(j,16) c[j] = k[j + 16];
