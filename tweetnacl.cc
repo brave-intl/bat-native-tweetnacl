@@ -6,7 +6,11 @@
 
 #if defined _WINDOWS
 #define NOGDI
+
+#if !defined CHROMIUM_BUILD
 #define NOMINMAX
+#endif
+
 #include <windows.h>
 #include <Wincrypt.h>
 #else
