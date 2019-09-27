@@ -7,7 +7,7 @@
 #if defined _WINDOWS
 #define NOGDI
 
-#if !defined CHROMIUM_BUILD
+#ifndef NOMINMAX
 #define NOMINMAX
 #endif
 
